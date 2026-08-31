@@ -100,6 +100,10 @@ modules.order
 !.get_maintainer.ignore
 !.gitattributes
 !.gitignore
+!.github/
+!.github/workflows/
+!.github/workflows/*.yml
+!.github/workflows/*.yaml
 !.kunitconfig
 !.mailmap
 !.rustfmt.toml
