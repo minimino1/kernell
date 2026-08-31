@@ -28,7 +28,8 @@ jobs:
             lz4 \
             zstd \
             clang \
-            lld
+            lld \
+            llvm
 
       - name: Build Metroid kernel (sun perf)
         shell: bash
