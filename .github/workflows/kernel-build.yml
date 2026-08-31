@@ -1,0 +1,71 @@
+name: Build Kernel
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc \
+            bison \
+            flex \
+            libssl-dev \
+            libelf-dev \
+            dwarves \
+            cpio \
+            lz4 \
+            zstd \
+            clang \
+            lld
+
+      - name: Build Metroid kernel (sun perf)
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          REPO_DIR="/home/runner/work/kernell/kernell"
+          OUT_DIR="/home/runner/work/kernell/kernell/out"
+
+          mkdir -p "${OUT_DIR}"
+
+          KCONFIG_CONFIG="${OUT_DIR}/.config" \
+            "${REPO_DIR}/scripts/kconfig/merge_config.sh" -m -r \
+            "${REPO_DIR}/arch/arm64/configs/gki_defconfig" \
+            "${REPO_DIR}/arch/arm64/configs/vendor/sun_perf.config" \
+            "${REPO_DIR}/arch/arm64/configs/vendor/Metroid.config"
+
+          make -C "${REPO_DIR}" O="${OUT_DIR}" ARCH=arm64 LLVM=1 olddefconfig
+          make -C "${REPO_DIR}" O="${OUT_DIR}" ARCH=arm64 LLVM=1 -j"$(nproc)" Image modules dtbs
+
+      - name: Collect build artifacts
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ARTIFACTS_DIR="/home/runner/work/kernell/kernell/artifacts"
+          OUT_DIR="/home/runner/work/kernell/kernell/out"
+
+          rm -rf "${ARTIFACTS_DIR}"
+          mkdir -p "${ARTIFACTS_DIR}"
+
+          cp "${OUT_DIR}/arch/arm64/boot/Image" "${ARTIFACTS_DIR}/Image"
+          cp "${OUT_DIR}/.config" "${ARTIFACTS_DIR}/kernel.config"
+          find "${OUT_DIR}/arch/arm64/boot/dts" -type f \( -name "*.dtb" -o -name "*.dtbo" \) -print0 \
+            | tar --null -T - -czf "${ARTIFACTS_DIR}/dtbs.tar.gz"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-build-metroid-sun-perf
+          path: /home/runner/work/kernell/kernell/artifacts
